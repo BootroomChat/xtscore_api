@@ -1,7 +1,10 @@
-from flask import Flask, jsonify, request
+import csv
+import json
 
-from xt_calculator import *
+from flask import Flask, Response, request
+
 from config import *
+from xt_calculator import *
 
 app = Flask(__name__)
 with app.app_context():
@@ -12,9 +15,10 @@ with app.app_context():
 @app.route('/calculator', methods=['POST'])
 def calculator():
     if request.args.get('api_key') == api_key:
-        return jsonify(calculate(reader))
+        return Response(json.dumps(calculate(reader, calculator_config=request.get_json())),
+                        content_type='application/json; charset=utf-8')
     else:
-        return jsonify({'Error': 'Wrong API KEY'})
+        return Response({'Error': 'Wrong API KEY'}, content_type='application/json; charset=utf-8')
 
 
 if __name__ == '__main__':

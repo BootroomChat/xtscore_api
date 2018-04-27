@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
-import csv
+
+import pandas as pd
 
 from xt_config import *
 from xt_util import *
@@ -39,26 +40,11 @@ def xt_position(position):
         return position
 
 
-def calculate_scores(file_name, calculator_config=CONFIG):
-    # stats keys:
-    # [u'cornersTotal', u'aerialsWon', u'dribblesLost', u'shotsTotal', u'passesAccurate',
-    # u'tackleUnsuccesful', u'defensiveAerials', u'aerialsTotal', u'offensiveAerials',
-    # u'passesTotal', u'throwInsTotal', u'dispossessed', u'interceptions', u'ratings',
-    # u'touches', u'offsidesCaught', u'parriedSafe', u'clearances', u'throwInAccuracy',
-    # u'collected', u'parriedDanger', u'possession', u'shotsOffTarget', u'dribblesAttempted',
-    # u'dribblesWon', u'cornersAccurate', u'tackleSuccess', u'throwInsAccurate', u'dribbleSuccess',
-    # u'errors', u'aerialSuccess', u'tacklesTotal', u'tackleSuccessful', u'shotsOnTarget',
-    # u'passesKey', u'dribbledPast', u'foulsCommited', u'shotsBlocked', u'totalSaves', u'passSuccess']
-    with open(file_name, "r") as theFile:
-        reader = csv.DictReader(theFile)
-        calculate(reader, calculator_config=calculator_config)
-
-
 def calculate(reader, calculator_config=CONFIG):
     results = []
     for line in reader:
-        team, name, position, id = line['team'], line['name'], line['position'], line['id']
-        xtPosition = position
+        line = line.copy()
+        xtPosition = xt_position(line['position'])
         result = {}
         if float(line['playMins']) > 0:
             for new_key, keys in COMBINED_KEYS.items():
@@ -66,7 +52,7 @@ def calculate(reader, calculator_config=CONFIG):
             for new_key, (success_key, total_key) in PERCENT_KEYS.items():
                 line[new_key] = safe_division(float(line[success_key]), float(line[total_key]))
 
-        for rating_key, config in calculator_config[xt_position(position)].items():
+        for rating_key, config in calculator_config[xtPosition].items():
             if config['function'] != 'zero':
                 value = float(line[config['key']])
                 if config['per_mode'] == '_minute':
@@ -84,7 +70,55 @@ def calculate(reader, calculator_config=CONFIG):
 
         result['overallRating'] = sum(result.values()) / 10 + 0
         result['adjustedRating'] = result['overallRating'] * 0.4
-        result.update(
-            {'id': id, 'team': team, 'name': name, 'position': position, 'xtPosition': xtPosition})
-        results.append(result)
-    return {'Done': len(results)}
+        line.update(result)
+        line.update(
+            {'xtPosition': xtPosition, 'playMins': line['playMins'], 'result': float(line['result']),
+             'points': float(line['points'])})
+        results.append(line)
+    response_dict = {}
+    data = pd.DataFrame(results)
+    data = data[data['xtPosition'] != 'Sub']
+    data['name_with_pos'] = data['name'] + ', ' + data['xtPosition'] + ', ' + data['team']
+    scores = data[data['team'] == 'Liverpool'][['team', 'name_with_pos', 'xtPosition', 'position', 'playMins', 'overallRating', 'result', 'points']]
+
+    position_scores_agg = scores.groupby(['xtPosition'])[
+        ['overallRating', 'result', 'points']].apply(position_agg)
+    position_scores_agg.reset_index(level=0, inplace=True)
+
+    response_dict['position_scores_agg'] = position_scores_agg.to_dict('records')
+
+    team_scores_agg = data.groupby(['team'])[['overallRating', 'result', 'points']].mean()
+    team_scores_agg.reset_index(level=0, inplace=True)
+    response_dict['team_scores_agg'] = team_scores_agg.to_dict('records')
+
+    player_scores_agg = scores.groupby(['name_with_pos'])[
+        ['overallRating', 'result', 'points']].apply(
+        player_agg).query('matches >= 10')
+    player_scores_agg.reset_index(level=0, inplace=True)
+    response_dict['player_scores_agg'] = player_scores_agg.to_dict('records')
+    # response_dict['best_20_players_by_xts'] = player_scores_agg.sort_values(
+    #     by=['overallRating'], ascending=False).head(20).to_dict('records')
+    # response_dict['worst_20_players_by_xts'] = player_scores_agg.sort_values(
+    #     by=['overallRating'], ascending=True).head(20).to_dict('records')
+    # response_dict['best_20_players_by_points'] = player_scores_agg.sort_values(
+    #     by=['points'], ascending=False).head(20).to_dict('records')
+    # response_dict['worst_20_players_by_points'] = player_scores_agg.sort_values(
+    #     by=['points'], ascending=True).head(20).to_dict('records')
+    return response_dict
+
+
+def position_agg(x):
+    data = {'overallRating': x['overallRating'].std(),
+            'result': x['result'].mean(),
+            'points': x['points'].mean(),
+            'matches': x['result'].count()}
+    return pd.Series(data)
+
+
+def player_agg(x):
+    data = {'overallRating': x['overallRating'].mean(),
+            'overallRatingStd': x['overallRating'].std(),
+            'result': x['result'].mean(),
+            'points': x['points'].mean(),
+            'matches': x['result'].count()}
+    return pd.Series(data)
