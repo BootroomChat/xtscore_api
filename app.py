@@ -1,16 +1,21 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+
 from xt_calculator import *
+from config import *
 
 app = Flask(__name__)
 with app.app_context():
-    with open('{}/static/match_stats.csv'.format(app.config['PROJECT_ROOT']), "r") as theFile:
-        reader = csv.DictReader(theFile)
+    with open('static/match_stats.csv', "r") as theFile:
+        reader = list(csv.DictReader(theFile))
 
 
 @app.route('/calculator', methods=['POST'])
 def calculator():
-    return jsonify(calculate(reader))
+    if request.args.get('api_key') == api_key:
+        return jsonify(calculate(reader))
+    else:
+        return jsonify({'Error': 'Wrong API KEY'})
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=8080)
