@@ -79,7 +79,8 @@ def calculate(reader, calculator_config=CONFIG):
     data = pd.DataFrame(results)
     data = data[data['xtPosition'] != 'Sub']
     data['name_with_pos'] = data['name'] + ', ' + data['xtPosition'] + ', ' + data['team']
-    scores = data[data['team'] == 'Liverpool'][['team', 'name_with_pos', 'xtPosition', 'position', 'playMins', 'overallRating', 'result', 'points']]
+    scores = data[data['team'] == 'Liverpool'][
+        ['team', 'name_with_pos', 'xtPosition', 'position', 'playMins', 'overallRating', 'result', 'points']]
 
     position_scores_agg = scores.groupby(['xtPosition'])[
         ['overallRating', 'result', 'points']].apply(position_agg)
