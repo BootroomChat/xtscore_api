@@ -105,7 +105,8 @@ def calculate(reader, calculator_config=CONFIG):
 
 
 def position_agg(x):
-    data = {'overallRating': x['overallRating'].std(),
+    data = {'overallRating': x['overallRating'].mean(),
+            'overallRatingStd': x['overallRating'].std(),
             'result': x['result'].mean(),
             'points': x['points'].mean(),
             'matches': x['result'].count()}
