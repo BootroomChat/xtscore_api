@@ -18,10 +18,6 @@ PERCENT_KEYS = {
     'passesAccuracy': ['passesAccurate', 'passesTotal'],
 }
 
-RATING_CONFIG = {
-    'shotsAccuracyRating': {}
-}
-
 
 def xt_position(position):
     if position in ['FW', 'FWL', 'FWR', 'AML', 'AMR']:

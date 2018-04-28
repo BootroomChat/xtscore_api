@@ -9,7 +9,7 @@ from xt_calculator import *
 app = Flask(__name__)
 with app.app_context():
     with open('static/match_stats.csv', "r") as theFile:
-        reader = list(csv.DictReader(theFile))
+        reader = [d for d in csv.DictReader(theFile)]
 
 
 @app.route('/calculator', methods=['POST'])
